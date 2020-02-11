@@ -1,16 +1,22 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Transactions;
 using MediatR.Extensions.UnitOfWork.Interface;
+using MediatR.Extensions.UnitOfWork.Results;
 
 namespace MediatR.Extensions.UnitOfWork
 {
     public static class UnitOfWorkExtensions
     {
+        /// <summary>
+        /// Runs several commands one after another
+        /// </summary>
         public static async Task<ICommandResult> Chain<TResponse>(
             this IMediator mediator,
             params IRequest<TResponse>[] requests) 
-            where TResponse: ICommandResult
+            where TResponse : ICommandResult
         {
             if (requests == null)
             {
@@ -31,41 +37,55 @@ namespace MediatR.Extensions.UnitOfWork
             return response;
         }
 
-        public static async Task<ICommandResult> ChainInTransaction<TResponse>(
+        /// <summary>
+        /// Runs several commands one after another in a TransactionScope.
+        /// </summary>
+        public static async Task<ICommandResult> ChainScoped<TResponse>(
             this IMediator mediator,
             params IRequest<TResponse>[] requests) 
-            where TResponse: ICommandResult
+            where TResponse : ICommandResult
         {
-            using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+            if (requests == null)
             {
-                var result =await Chain(mediator, requests);
-
-                if (result.Success)
-                {
-                    scope.Complete();
-                }
-
-                return result;
+                throw new ArgumentNullException(nameof(requests));
             }
+
+            using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
+            var result = await Chain(mediator, requests);
+
+            if (result.Success)
+            {
+                scope.Complete();
+            }
+
+            return result;
         }
 
-        public static async Task<ICommandResult> SendAndFire<TResponse>(
+        /// <summary>
+        /// Runs a command and executes it's notifications after it.
+        /// </summary>
+        public static async Task<ICommandResult> SendThenPublish<TResponse>(
             this IMediator mediator,
             IRequest<TResponse> request) 
-            where TResponse: INotificationResult
+            where TResponse : INotificationResult
         {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
             var response = await mediator.Send(request);
 
-            if (response.Success && response.FireOnSuccess != null)
+            if (response.Success && response.OnSucceedNotifications != null)
             {
-                foreach (var notification in response.FireOnSuccess)
+                foreach (var notification in response.OnSucceedNotifications)
                 {
                     await mediator.Publish(notification);
                 }
             }
-            else if (!response.Success && response.FireOnFailure != null)
+            else if (!response.Success && response.OnFailedNotifications != null)
             {
-                foreach (var notification in response.FireOnFailure)
+                foreach (var notification in response.OnFailedNotifications)
                 {
                     await mediator.Publish(notification);
                 }
@@ -74,36 +94,168 @@ namespace MediatR.Extensions.UnitOfWork
             return response;
         }
 
-        public static async Task<ICommandResult> SendAndFireInTransaction<TResponse>(
+        /// <summary>
+        /// Runs several commands in a transaction scope, then publishes all failed/succeed notifications.
+        /// </summary>
+        public static async Task<ICommandResult> RunAllScopedThenPublish<TResponse>(
             this IMediator mediator,
-            IRequest<TResponse> request) 
-            where TResponse: INotificationResult
+            params IRequest<TResponse>[] requests) 
+            where TResponse : INotificationResult
         {
-            using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+            if (requests == null)
+            {
+                throw new ArgumentNullException(nameof(requests));
+            }
+
+            using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
+            var responses = new List<INotificationResult>();
+
+            foreach (var request in requests)
             {
                 var response = await mediator.Send(request);
+                responses.Add(response);
+            }
 
-                if (response.Success && response.FireOnSuccess != null)
-                {
-                    foreach (var notification in response.FireOnSuccess)
-                    {
-                        await mediator.Publish(notification);
-                    }
-                }
-                else if (!response.Success && response.FireOnFailure != null)
-                {
-                    foreach (var notification in response.FireOnFailure)
-                    {
-                        await mediator.Publish(notification);
-                    }
-                }
+            var result = responses.Select(x => x.Success)
+                .Aggregate((x, y) => x && y);
 
-                if (response.Success)
+            if (result)
+            {
+                scope.Complete();
+            }
+
+            foreach (var response in responses)
+            {
+                foreach (var notification in response.OnSucceedNotifications)
                 {
-                    scope.Complete();
+                    await mediator.Publish(notification);
                 }
 
-                return response;
+                foreach (var notification in response.OnFailedNotifications)
+                {
+                    await mediator.Publish(notification);
+                }
+            }
+
+            return new CommandResult
+            {
+                Success = result
+            };
+        }
+
+        /// <summary>
+        /// Runs several commands in a transaction scope, returns groupd notification responses
+        /// </summary>
+        public static async Task<IGroupResult> RunAllScoped<TResponse>(
+            this IMediator mediator,
+            params IRequest<TResponse>[] requests) 
+            where TResponse : INotificationResult
+        {
+            if (requests == null)
+            {
+                throw new ArgumentNullException(nameof(requests));
+            }
+
+            using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
+            var responses = new List<INotificationResult>();
+
+            foreach (var request in requests)
+            {
+                var response = await mediator.Send(request);
+                responses.Add(response);
+            }
+
+            var result = responses.Select(x => x.Success)
+                .Aggregate((x, y) => x && y);
+
+            if (result)
+            {
+                scope.Complete();
+            }
+
+            return new GroupResult()
+            {
+                NotificationResults = responses,
+                Mediator = mediator
+            };
+        }
+
+        /// <summary>
+        /// Publishes grouped notifications both succeed and failed.
+        /// </summary>
+        public static async Task ThenPublishAll<TResponse>(
+            this GroupResult groupResult) 
+            where TResponse : INotificationResult
+        {
+            if (groupResult == null)
+            {
+                throw new ArgumentNullException(nameof(groupResult));
+            }
+
+            if (groupResult.Mediator == null)
+            {
+                throw new ArgumentException(nameof(groupResult.Mediator));
+            }
+
+            foreach (var response in groupResult.NotificationResults)
+            {
+                foreach (var notification in response.OnSucceedNotifications)
+                {
+                    await groupResult.Mediator.Publish(notification);
+                }
+
+                foreach (var notification in response.OnFailedNotifications)
+                {
+                    await groupResult.Mediator.Publish(notification);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Publishes grouped succeed notifications.
+        /// </summary>
+        public static async Task ThenPublishSucceed<TResponse>(
+            this GroupResult groupResult) 
+            where TResponse : INotificationResult
+        {
+            if (groupResult == null)
+            {
+                throw new ArgumentNullException(nameof(groupResult));
+            }
+
+            if (groupResult.Mediator == null)
+            {
+                throw new ArgumentException(nameof(groupResult.Mediator));
+            }
+
+            foreach (var notification in groupResult.NotificationResults
+                .SelectMany(response => response.OnSucceedNotifications))
+            {
+                await groupResult.Mediator.Publish(notification);
+            }
+        }
+
+        /// <summary>
+        /// Publishes grouped failed notifications.
+        /// </summary>
+        public static async Task ThenPublishFailed<TResponse>(
+            this GroupResult groupResult) 
+            where TResponse : INotificationResult
+        {
+            if (groupResult == null)
+            {
+                throw new ArgumentNullException(nameof(groupResult));
+            }
+
+            if (groupResult.Mediator == null)
+            {
+                throw new ArgumentException(nameof(groupResult.Mediator));
+            }
+
+            foreach (var notification in groupResult.NotificationResults
+                .SelectMany(response => response.OnFailedNotifications))
+            {
+                await groupResult.Mediator.Publish(notification);
             }
         }
     }
