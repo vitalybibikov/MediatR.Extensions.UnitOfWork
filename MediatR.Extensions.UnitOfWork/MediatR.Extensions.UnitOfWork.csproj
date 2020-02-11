@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <PackageId>MediatR.Extensions.UnitOfWork</PackageId>
+    <PackageProjectUrl>https://github.com/vitalybibikov/AzureExtensions.FunctionToken</PackageProjectUrl>
+    <Description>
+      Set of extensions to run multiple MediatR commands sequentially. In a transaction scope, 
+      just one by one or when you need to fire a notification just after a command succeded/failed.
+    </Description>
+    <Copyright>Vitali Bibikov ©</Copyright>
+    <RepositoryUrl>https://github.com/vitalybibikov/AzureExtensions.FunctionToken</RepositoryUrl>
+    <RepositoryType>GitHub</RepositoryType>
+    <PackageTags>MediatR UnitOfWork Transactions Scope</PackageTags>
+    <Version>8.0.0</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.1.118">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="5.6.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <AdditionalFiles Include="..\stylecop.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <CodeAnalysisRuleSet>..\StyleCop.ruleset</CodeAnalysisRuleSet>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+  </PropertyGroup>
+
+</Project>
