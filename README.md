@@ -21,8 +21,8 @@ Set of extensions to run multiple MediatR commands sequentially.
 
 
 When you need to fire a notification just after a command succeded/failed without any changes in a handler.
-  Creates a proper contract, firing of a notification after the command becomes more transparent.
-
+* Creates a proper contract, 
+* Firing of notification after the command becomes more transparent.
 
             var command3 = new BurnPurchaseAndNotifyCommand : INotificationResult
             {
@@ -37,3 +37,19 @@ This allows to execute multiple commands with notifications, which should fail o
 * Notifications are executed afterwards, means it becomes transparent
 * You can update your app, without changes in commands that are already tested.
 * Each command becomes atomic, and knows only about itself and notifications.
+
+            var command3 = new BurnPurchaseAndNotifyCommand : INotificationResult
+            {
+                WorkerId = userId,
+            };
+            var command4 = new BurnPurchaseAndNotifyCommand : INotificationResult
+            {
+                WorkerId = userId,
+            };
+            
+            
+            var result1 = await Mediator.RunAllScopedThenPublish(command3, command4);
+            var result2 = await Mediator.RunAllScoped(command3, command4).ThenPublishAll();
+            var result2 = await Mediator.RunAllScoped(command3, command4).ThenPublishSucceed();
+            var result3 = await Mediator.RunAllScoped(command3, command4).ThenPublishFailed();
+
