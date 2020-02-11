@@ -7,8 +7,8 @@ namespace MediatR.Extensions.UnitOfWork.Results
     {
         public bool Success { get; set; }
 
-        public IEnumerable<INotification> OnFailedNotifications { get; set; } = new List<INotification>();
+        public IList<INotification> OnFailedNotifications { get; set; } = new List<INotification>();
 
-        public IEnumerable<INotification> OnSucceedNotifications { get; set; } = new List<INotification>();
+        public IList<INotification> OnSucceededNotifications { get; set; } = new List<INotification>();
     }
 }

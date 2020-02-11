@@ -76,9 +76,9 @@ namespace MediatR.Extensions.UnitOfWork
 
             var response = await mediator.Send(request);
 
-            if (response.Success && response.OnSucceedNotifications != null)
+            if (response.Success && response.OnSucceededNotifications != null)
             {
-                foreach (var notification in response.OnSucceedNotifications)
+                foreach (var notification in response.OnSucceededNotifications)
                 {
                     await mediator.Publish(notification);
                 }
@@ -126,7 +126,7 @@ namespace MediatR.Extensions.UnitOfWork
 
             foreach (var response in responses)
             {
-                foreach (var notification in response.OnSucceedNotifications)
+                foreach (var notification in response.OnSucceededNotifications)
                 {
                     await mediator.Publish(notification);
                 }
@@ -144,7 +144,7 @@ namespace MediatR.Extensions.UnitOfWork
         }
 
         /// <summary>
-        /// Runs several commands in a transaction scope, returns groupd notification responses
+        /// Runs several commands in a transaction scope, returns groupd notification responses.
         /// </summary>
         public static async Task<IGroupResult> RunAllScoped<TResponse>(
             this IMediator mediator,
@@ -183,14 +183,15 @@ namespace MediatR.Extensions.UnitOfWork
         /// <summary>
         /// Publishes grouped notifications both succeed and failed.
         /// </summary>
-        public static async Task ThenPublishAll<TResponse>(
-            this GroupResult groupResult) 
-            where TResponse : INotificationResult
+        public static async Task ThenPublishAll(
+            this Task<IGroupResult> awaitedResult)
         {
-            if (groupResult == null)
+            if (awaitedResult == null)
             {
-                throw new ArgumentNullException(nameof(groupResult));
+                throw new ArgumentNullException(nameof(awaitedResult));
             }
+
+            var groupResult = await awaitedResult;
 
             if (groupResult.Mediator == null)
             {
@@ -199,7 +200,7 @@ namespace MediatR.Extensions.UnitOfWork
 
             foreach (var response in groupResult.NotificationResults)
             {
-                foreach (var notification in response.OnSucceedNotifications)
+                foreach (var notification in response.OnSucceededNotifications)
                 {
                     await groupResult.Mediator.Publish(notification);
                 }
@@ -214,14 +215,15 @@ namespace MediatR.Extensions.UnitOfWork
         /// <summary>
         /// Publishes grouped succeed notifications.
         /// </summary>
-        public static async Task ThenPublishSucceed<TResponse>(
-            this GroupResult groupResult) 
-            where TResponse : INotificationResult
+        public static async Task ThenPublishSucceeded(
+            this Task<IGroupResult> awaitedResult)
         {
-            if (groupResult == null)
+            if (awaitedResult == null)
             {
-                throw new ArgumentNullException(nameof(groupResult));
+                throw new ArgumentNullException(nameof(awaitedResult));
             }
+
+            var groupResult = await awaitedResult;
 
             if (groupResult.Mediator == null)
             {
@@ -229,7 +231,7 @@ namespace MediatR.Extensions.UnitOfWork
             }
 
             foreach (var notification in groupResult.NotificationResults
-                .SelectMany(response => response.OnSucceedNotifications))
+                .SelectMany(response => response.OnSucceededNotifications))
             {
                 await groupResult.Mediator.Publish(notification);
             }
@@ -238,14 +240,15 @@ namespace MediatR.Extensions.UnitOfWork
         /// <summary>
         /// Publishes grouped failed notifications.
         /// </summary>
-        public static async Task ThenPublishFailed<TResponse>(
-            this GroupResult groupResult) 
-            where TResponse : INotificationResult
+        public static async Task ThenPublishFailed(
+            this Task<IGroupResult> awaitedResult)
         {
-            if (groupResult == null)
+            if (awaitedResult == null)
             {
-                throw new ArgumentNullException(nameof(groupResult));
+                throw new ArgumentNullException(nameof(awaitedResult));
             }
+
+            var groupResult = await awaitedResult;
 
             if (groupResult.Mediator == null)
             {

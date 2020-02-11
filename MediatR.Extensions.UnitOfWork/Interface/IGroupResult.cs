@@ -7,7 +7,7 @@ namespace MediatR.Extensions.UnitOfWork.Interface
     {
         bool Success { get; }
 
-        List<INotificationResult> NotificationResults { get; set; }
+        IList<INotificationResult> NotificationResults { get; set; }
 
         IMediator Mediator { get; set; }
     }

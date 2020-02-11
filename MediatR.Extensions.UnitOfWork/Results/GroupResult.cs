@@ -15,7 +15,7 @@ namespace MediatR.Extensions.UnitOfWork.Results
             }
         }
 
-        public List<INotificationResult> NotificationResults { get; set; } = new List<INotificationResult>();
+        public IList<INotificationResult> NotificationResults { get; set; } = new List<INotificationResult>();
 
         public IMediator Mediator { get; set; }
     }

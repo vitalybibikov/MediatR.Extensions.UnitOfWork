@@ -4,8 +4,8 @@ namespace MediatR.Extensions.UnitOfWork.Interface
 {
     public interface INotificationResult : ICommandResult
     {
-        IEnumerable<INotification> OnFailedNotifications { get; set; }
+        IList<INotification> OnFailedNotifications { get; set; }
 
-        IEnumerable<INotification> OnSucceedNotifications { get; set; }
+        IList<INotification> OnSucceededNotifications { get; set; }
     }
 }
